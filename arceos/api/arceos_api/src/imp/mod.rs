@@ -24,7 +24,13 @@ mod stdio {
     }
 
     pub fn ax_console_write_bytes(buf: &[u8]) -> crate::AxResult<usize> {
+        // print_with_color: Write the bytes to the console with red color.
+        // 不能输出RESET，不然无法识别到输出。。
+        const RED: &[u8] = b"\x1b[1;31m";
+        // const RESET: &[u8] = b"\x1b[0m";
+        axhal::console::write_bytes(RED);
         axhal::console::write_bytes(buf);
+        // axhal::console::write_bytes(RESET);
         Ok(buf.len())
     }
 
