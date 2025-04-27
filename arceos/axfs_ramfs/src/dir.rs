@@ -141,6 +141,31 @@ impl VfsNodeOps for DirNode {
         }
     }
 
+    fn rename(&self, src_path: &str, dst_path: &str) -> VfsResult {
+        log::debug!("rename at ramfs: {} -> {}", src_path, dst_path);
+        // this must happen in the same directory.
+        let (name, rest) = split_path(src_path);
+        if let Some(rest) = rest {
+            match name {
+                "" | "." => self.remove(rest),
+                ".." => self.parent().ok_or(VfsError::NotFound)?.remove(rest),
+                _ => {
+                    let subdir = self
+                        .children
+                        .read()
+                        .get(name)
+                        .ok_or(VfsError::NotFound)?
+                        .clone();
+                    subdir.remove(rest)
+                }
+            }
+        } else if name.is_empty() || name == "." || name == ".." {
+            Err(VfsError::InvalidInput) // remove '.' or '..
+        } else {
+            self.remove_node(name)
+        }
+    }
+
     fn remove(&self, path: &str) -> VfsResult {
         log::debug!("remove at ramfs: {}", path);
         let (name, rest) = split_path(path);
