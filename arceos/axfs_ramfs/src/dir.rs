@@ -67,6 +67,25 @@ impl DirNode {
         children.remove(name);
         Ok(())
     }
+
+    /// Rename a node by the given name in this directory.
+    pub fn rename_node(&self, src_name: &str, dst_name: &str) -> VfsResult {
+        let children = self.children.write();
+        let node = children.get(src_name).cloned().ok_or(VfsError::NotFound)?;
+        if node.as_any().downcast_ref::<DirNode>().is_some()
+            || node.as_any().downcast_ref::<FileNode>().is_some()
+        {
+            // 如果目标已经存在，就不重命名吧
+            if children.get(dst_name).is_some() {
+                return Err(VfsError::AlreadyExists);
+            }
+            self.children.write().remove(src_name);
+            self.children.write().insert(dst_name.into(), node);
+            Ok(())
+        } else {
+            return Err(VfsError::InvalidInput);
+        }
+    }
 }
 
 impl VfsNodeOps for DirNode {
@@ -144,25 +163,43 @@ impl VfsNodeOps for DirNode {
     fn rename(&self, src_path: &str, dst_path: &str) -> VfsResult {
         log::debug!("rename at ramfs: {} -> {}", src_path, dst_path);
         // this must happen in the same directory.
-        let (name, rest) = split_path(src_path);
-        if let Some(rest) = rest {
-            match name {
-                "" | "." => self.remove(rest),
-                ".." => self.parent().ok_or(VfsError::NotFound)?.remove(rest),
-                _ => {
-                    let subdir = self
-                        .children
-                        .read()
-                        .get(name)
+        let (src_name, src_rest) = split_path(src_path);
+        let (dst_name, dst_rest) = split_path(dst_path);
+        if let (Some(src_rest), Some(dst_rest)) = (src_rest, dst_rest) {
+            if src_name == dst_name {
+                match src_name {
+                    "" | "." => self.rename(src_rest, dst_rest),
+                    ".." => self
+                        .parent()
                         .ok_or(VfsError::NotFound)?
-                        .clone();
-                    subdir.remove(rest)
+                        .rename(src_rest, dst_rest),
+                    _ => {
+                        let subdir = self
+                            .children
+                            .read()
+                            .get(src_name)
+                            .ok_or(VfsError::NotFound)?
+                            .clone();
+                        subdir.rename(src_rest, dst_rest)
+                    }
                 }
+            } else {
+                self.rename_node(src_rest, dst_rest)
             }
-        } else if name.is_empty() || name == "." || name == ".." {
-            Err(VfsError::InvalidInput) // remove '.' or '..
+        } else if src_rest.is_none() && dst_rest.is_none() {
+            if src_name.is_empty()
+                || dst_name.is_empty()
+                || dst_name == "."
+                || dst_name == ".."
+                || src_name == "."
+                || src_name == ".."
+            {
+                Err(VfsError::InvalidInput)
+            } else {
+                self.rename_node(src_name, dst_name)
+            }
         } else {
-            self.remove_node(name)
+            Err(VfsError::InvalidInput)
         }
     }
 
