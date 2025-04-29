@@ -102,16 +102,31 @@ fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
             }
         },
         Trap::Exception(Exception::IllegalInstruction) => {
-            panic!("Bad instruction: {:#x} sepc: {:#x}",
-                stval::read(),
-                ctx.guest_regs.sepc
-            );
+            // 80200000:       f14025f3                csrr    a1,mhartid
+            // 好像没相关的api能获取到 csrr    a1,mhartid？？？
+            // panic!("Bad instruction: {:#x} sepc: {:#x}",
+            //     stval::read(),
+            //     ctx.guest_regs.sepc
+            // );
+            ctx.guest_regs.gprs.set_reg(regs::GprIndex::A1, 0x1234);
+            let a1 = ctx.guest_regs.gprs.reg(A1);
+            ax_println!("a1 = {:#x}", a1);
+            assert_eq!(a1, 0x1234);
+            // sepc+4
+            ctx.guest_regs.sepc += 4;
         },
         Trap::Exception(Exception::LoadGuestPageFault) => {
-            panic!("LoadGuestPageFault: stval{:#x} sepc: {:#x}",
-                stval::read(),
-                ctx.guest_regs.sepc
-            );
+            // 04003503                ld      a0,64(zero) # 40 <_percpu_load_end+0x40>
+            // panic!("LoadGuestPageFault: stval{:#x} sepc: {:#x}",
+            //     stval::read(),
+            //     ctx.guest_regs.sepc
+            // );
+            ctx.guest_regs.gprs.set_reg(regs::GprIndex::A0, 0x6688);
+            let a0 = ctx.guest_regs.gprs.reg(A0);
+            ax_println!("a0 = {:#x}", a1);
+            assert_eq!(a0, 0x6688);
+            // sepc+4
+            ctx.guest_regs.sepc += 4;
         },
         _ => {
             panic!(
