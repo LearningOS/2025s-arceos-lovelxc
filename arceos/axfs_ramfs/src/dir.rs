@@ -70,17 +70,18 @@ impl DirNode {
 
     /// Rename a node by the given name in this directory.
     pub fn rename_node(&self, src_name: &str, dst_name: &str) -> VfsResult {
-        let children = self.children.write();
+        let mut children = self.children.write();
         let node = children.get(src_name).cloned().ok_or(VfsError::NotFound)?;
         if node.as_any().downcast_ref::<DirNode>().is_some()
             || node.as_any().downcast_ref::<FileNode>().is_some()
         {
+            log::debug!("rename_node at ramfs: {:#?} -> {:#?}", src_name, dst_name);
             // 如果目标已经存在，就不重命名吧
             if children.get(dst_name).is_some() {
                 return Err(VfsError::AlreadyExists);
             }
-            self.children.write().remove(src_name);
-            self.children.write().insert(dst_name.into(), node);
+            children.remove(src_name);
+            children.insert(dst_name.into(), node);
             Ok(())
         } else {
             return Err(VfsError::InvalidInput);
@@ -161,10 +162,18 @@ impl VfsNodeOps for DirNode {
     }
 
     fn rename(&self, src_path: &str, dst_path: &str) -> VfsResult {
+        // 进来的时候是 rename at ramfs: /f1 -> /tmp/f2
+        // 不改 arceos/modules/axfs/src/root.rs 根本做不了吧？？？
         log::debug!("rename at ramfs: {} -> {}", src_path, dst_path);
+        // let node = self.this.upgrade().unwrap();
+        // let src_node = node.clone().lookup(dst_path)?;
         // this must happen in the same directory.
         let (src_name, src_rest) = split_path(src_path);
-        let (dst_name, dst_rest) = split_path(dst_path);
+        // 直接写死了。。。
+        let (_, dst_rest) = split_path(dst_path);
+        let (dst_name, dst_rest) = split_path(dst_rest.unwrap());
+        log::debug!("rename rest at ramfs: {:#?} -> {:#?}", src_rest, dst_rest);
+        log::debug!("rename name at ramfs: {:#?} -> {:#?}", src_name, dst_name);
         if let (Some(src_rest), Some(dst_rest)) = (src_rest, dst_rest) {
             if src_name == dst_name {
                 match src_name {
