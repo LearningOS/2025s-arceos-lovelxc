@@ -123,7 +123,7 @@ fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
             // );
             ctx.guest_regs.gprs.set_reg(regs::GprIndex::A0, 0x6688);
             let a0 = ctx.guest_regs.gprs.reg(A0);
-            ax_println!("a0 = {:#x}", a1);
+            ax_println!("a0 = {:#x}", a0);
             assert_eq!(a0, 0x6688);
             // sepc+4
             ctx.guest_regs.sepc += 4;
