@@ -114,6 +114,7 @@ fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
             assert_eq!(a1, 0x1234);
             // sepc+4
             ctx.guest_regs.sepc += 4;
+            return false;
         },
         Trap::Exception(Exception::LoadGuestPageFault) => {
             // 04003503                ld      a0,64(zero) # 40 <_percpu_load_end+0x40>
@@ -127,6 +128,7 @@ fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
             assert_eq!(a0, 0x6688);
             // sepc+4
             ctx.guest_regs.sepc += 4;
+            return false;
         },
         _ => {
             panic!(
